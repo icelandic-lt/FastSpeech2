@@ -1,8 +1,10 @@
 import os
 
 # Dataset
-dataset = "LJSpeech"
-data_path = "/home/ming/Data/Raw/LJSpeech-1.1"
+dataset = "Talromur-v0"
+data_path = "/data/talromur/a/"
+#dataset = "LJSpeech"
+#data_path = "/home/ming/Data/Raw/LJSpeech-1.1"
 #dataset = "Blizzard2013"
 #data_path = "./Blizzard-2013/train/segmented/"
 
@@ -12,6 +14,11 @@ text_cleaners = ['english_cleaners']
 
 
 # Audio and mel
+### for Talromur ###
+sampling_rate = 44100
+filter_length = 1024
+hop_length = 256
+win_length = 1024
 ### for LJSpeech ###
 sampling_rate = 22050
 filter_length = 1024
