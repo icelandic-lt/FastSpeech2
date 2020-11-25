@@ -12,13 +12,12 @@ from text import text_to_sequence, sequence_to_text
 import hparams as hp
 import utils
 import audio as Audio
+from g2p_is import translate as g2p
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def preprocess(text):
     text = text.rstrip(punctuation)
-
-    g2p = G2p()
     phone = g2p(text)
     phone = list(filter(lambda p: p != ' ', phone))
     phone = '{'+ '}{'.join(phone) + '}'
@@ -56,13 +55,14 @@ def synthesize(model, waveglow, melgan, text, sentence, prefix=''):
     if not os.path.exists(hp.test_path):
         os.makedirs(hp.test_path)
 
-    Audio.tools.inv_mel_spec(mel_postnet, os.path.join(hp.test_path, '{}_griffin_lim_{}.wav'.format(prefix, sentence)))
+    sentence_id = sentence[:30]
+    Audio.tools.inv_mel_spec(mel_postnet, os.path.join(hp.test_path, '{}_griffin_lim_{}.wav'.format(prefix, sentence_id)))
     if waveglow is not None:
-        utils.waveglow_infer(mel_postnet_torch, waveglow, os.path.join(hp.test_path, '{}_{}_{}.wav'.format(prefix, hp.vocoder, sentence)))
+        utils.waveglow_infer(mel_postnet_torch, waveglow, os.path.join(hp.test_path, '{}_{}_{}.wav'.format(prefix, hp.vocoder, sentence_id)))
     if melgan is not None:
-        utils.melgan_infer(mel_postnet_torch, melgan, os.path.join(hp.test_path, '{}_{}_{}.wav'.format(prefix, hp.vocoder, sentence)))
+        utils.melgan_infer(mel_postnet_torch, melgan, os.path.join(hp.test_path, '{}_{}_{}.wav'.format(prefix, hp.vocoder, sentence_id)))
     
-    utils.plot_data([(mel_postnet.numpy(), f0_output, energy_output)], ['Synthesized Spectrogram'], filename=os.path.join(hp.test_path, '{}_{}.png'.format(prefix, sentence)))
+    utils.plot_data([(mel_postnet.numpy(), f0_output, energy_output)], ['Synthesized Spectrogram'], filename=os.path.join(hp.test_path, '{}_{}.png'.format(prefix, sentence_id)))
 
 
 if __name__ == "__main__":
@@ -84,6 +84,16 @@ if __name__ == "__main__":
         "Printing, then, for our purpose, may be considered as the art of making books by means of movable types.",
         "Now, as all books not primarily intended as picture-books consist principally of types composed to form letterpress,"
         ]
+    sentences = [
+        "góðan dag ég kann að tala íslensku alveg hnökralaust eða svona næstum því",
+        "hlýnun lengir líf fellibylja yfir landi",
+        'Eg skal segja þér, kvað hann, hvað eg hefi hugsað. eg ætla að hafa til þings með mér kistur þær tvær, er Aðalsteinn konungur gaf mér, er hvortveggja er full af ensku silfri. Ætla eg að láta bera kisturnar til Lögbergs, þá er þar er fjölmennast; síðan ætla eg að sá silfrinu, og þykir mér undarlegt, ef allir skipta vel sín í milli; ætla eg, að þar myndi vera þá hrundningar, eða pústrar, eða bærist að um síðir, að allur þingheimurinn berðist.',
+        "Vigdís Finnbogadóttir var fjórði forseti Íslands og gegndi hún embættinu frá 1980 til 1996. Hún var fyrsta konan i heiminum sem kosin var í lýðræðislegum kosningum til að gegna hlutverki þjóðhöfðingja.",
+        "Í gær kvisaðist það út í Ósló að óvenjulíflegt væri á öldurhúsum nágrannasveitarfélaganna Asker og Bærum af þriðjudegi að vera auk þess sem norska ríkisútvarpið NRK greindi frá því að langar biðraðir væru fyrir utan líkamsræktarstöðvar bæja þessara, nokkuð sem íbúar þar höfðu sjaldan upplifað.",
+        "Japanski bílsmiðurinn Honda hlaut í gær leyfi yfirvalda til að selja bíl með þriðja stigs sjálfaksturs tækni.",
+        "Rómeó og Júlía er saga af sannri ást en um leið ástsýki og ungæðishætti. Í forgrunni verður mögnuð barátta ungrar konu gegn yfirþyrmandi feðraveldi. Fegurstu sögurnar geta sprottið upp úr hræðilegustu aðstæðunum.",
+        "Diogo Jota, leikmaður Liverpool, er mjög ósáttur með EA Sports og sú einkunn sem þeir hafa gefið honum í FIFA 21 leiknum. EA Sports uppfærði ekki tölfræðina hans á þessu tímabili.",
+    ]
 
     model = get_FastSpeech2(args.step).to(device)
     melgan = waveglow = None

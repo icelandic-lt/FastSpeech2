@@ -52,5 +52,6 @@ class FastSpeech2(nn.Module):
 if __name__ == "__main__":
     # Test
     model = FastSpeech2(use_postnet=False)
+    print("Model:")
     print(model)
     print(sum(param.numel() for param in model.parameters()))

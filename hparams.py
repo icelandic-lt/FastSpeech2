@@ -1,24 +1,25 @@
 import os
 
 # Dataset
-dataset = "Talromur-v0"
-data_path = "/data/talromur/a/"
+dataset = "Talromur-b"
+data_path = "/data/talromur/b/"
 #dataset = "LJSpeech"
-#data_path = "/home/ming/Data/Raw/LJSpeech-1.1"
+#data_path = "/data/LJSpeech/LJSpeech-1.1"
 #dataset = "Blizzard2013"
 #data_path = "./Blizzard-2013/train/segmented/"
 
 
 # Text
-text_cleaners = ['english_cleaners']
+#text_cleaners = ['english_cleaners']
+text_cleaners = ['transliteration_cleaners']
 
 
 # Audio and mel
 ### for Talromur ###
-sampling_rate = 44100
-filter_length = 1024
-hop_length = 256
-win_length = 1024
+#sampling_rate = 44100
+#filter_length = 2048
+#hop_length = 512
+#win_length = 2048
 ### for LJSpeech ###
 sampling_rate = 22050
 filter_length = 1024
@@ -56,11 +57,16 @@ max_seq_len = 1000
 
 
 # Quantization for F0 and energy
-### for LJSpeech ###
+### for Talromur ###
 f0_min = 71.0
-f0_max = 795.8
+f0_max = 799.4
 energy_min = 0.0
-energy_max = 315.0
+energy_max = 172.0
+### for LJSpeech ###
+#f0_min = 71.0
+#f0_max = 795.8
+#energy_min = 0.0
+#energy_max = 315.0
 ### for Blizzard2013 ###
 #f0_min = 71.0
 #f0_max = 786.7

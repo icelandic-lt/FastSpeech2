@@ -7,6 +7,7 @@ import torch
 import audio as Audio
 from utils import get_alignment
 import hparams as hp
+import librosa
 
 
 def prepare_align(in_dir):
@@ -38,7 +39,7 @@ def build_from_path(in_dir, out_dir):
                 train.append(info)
 
             if index % 100 == 0:
-                print("Done %d" % index)
+                print("Done %d" % index, flush=True)
             index = index + 1
 
             f0_max = max(f0_max, f_max)
@@ -66,7 +67,12 @@ def process_utterance(in_dir, out_dir, basename):
     tg_path = os.path.join(out_dir, 'TextGrid', '{}.TextGrid'.format(basename)) 
     
     # Get alignments
-    textgrid = tgt.io.read_textgrid(tg_path)
+    try:
+        textgrid = tgt.io.read_textgrid(tg_path)
+    except FileNotFoundError:
+        print("TextGrid not found", flush=True)
+        return None
+
     phone, duration, start, end = get_alignment(textgrid.get_tier_by_name('phones'))
     text = '{'+ '}{'.join(phone) + '}' # '{A}{B}{$}{C}', $ represents silent phones
     text = text.replace('{$}', ' ')    # '{A}{B} {C}'
@@ -76,18 +82,29 @@ def process_utterance(in_dir, out_dir, basename):
         return None
 
     # Read and trim wav files
-    _, wav = read(wav_path)
+    sr, wav = read(wav_path)
+    if len(wav.shape) > 1:
+        wav = wav[:,0]
+    if sr != hp.sampling_rate:
+        wav = librosa.resample(wav.astype(np.float32), orig_sr=sr, target_sr=hp.sampling_rate)
     wav = wav[int(hp.sampling_rate*start):int(hp.sampling_rate*end)].astype(np.float32)
-    
+    #y, sr = librosa.load(wav_path, sr=hp.sampling_rate)
+    #wav = y[int(hp.sampling_rate*start):int(hp.sampling_rate*end)].astype(np.float32)
+
     # Compute fundamental frequency
     f0, _ = pw.dio(wav.astype(np.float64), hp.sampling_rate, frame_period=hp.hop_length/hp.sampling_rate*1000)
     f0 = f0[:sum(duration)]
-
-    # Compute mel-scale spectrogram and energy
-    mel_spectrogram, energy = Audio.tools.get_mel_from_wav(torch.FloatTensor(wav))
-    mel_spectrogram = mel_spectrogram.numpy().astype(np.float32)[:, :sum(duration)]
-    energy = energy.numpy().astype(np.float32)[:sum(duration)]
-    if mel_spectrogram.shape[1] >= hp.max_seq_len:
+    if len([f for f in f0 if f != 0]) < 1:
+        return None
+    
+    try:
+        # Compute mel-scale spectrogram and energy
+        mel_spectrogram, energy = Audio.tools.get_mel_from_wav(torch.FloatTensor(wav))
+        mel_spectrogram = mel_spectrogram.numpy().astype(np.float32)[:, :sum(duration)]
+        energy = energy.numpy().astype(np.float32)[:sum(duration)]
+        if mel_spectrogram.shape[1] >= hp.max_seq_len:
+            return None
+    except AssertionError:
         return None
 
     # Save alignment
@@ -105,5 +122,5 @@ def process_utterance(in_dir, out_dir, basename):
     # Save spectrogram
     mel_filename = '{}-mel-{}.npy'.format(hp.dataset, basename)
     np.save(os.path.join(out_dir, 'mel', mel_filename), mel_spectrogram.T, allow_pickle=False)
- 
+    
     return '|'.join([basename, text]), max(f0), min([f for f in f0 if f != 0]), max(energy), min(energy), mel_spectrogram.shape[1]

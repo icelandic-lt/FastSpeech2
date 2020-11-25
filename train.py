@@ -82,6 +82,7 @@ def main(args):
     # Training
     model = model.train()
     for epoch in range(hp.epochs):
+        print("\n---Start epoch---\n", flush=True)
         # Get Training Loader
         total_step = hp.epochs * len(loader) * hp.batch_size
 

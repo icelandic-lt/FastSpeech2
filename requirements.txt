@@ -9,3 +9,4 @@ unidecode == 1.1.1
 inflect == 4.1.0
 g2p-en == 2.1.0
 tensorboard== 2.2.2
+git+https://github.com/sequitur-g2p/sequitur-g2p@master
