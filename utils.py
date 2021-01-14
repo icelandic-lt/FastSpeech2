@@ -130,9 +130,17 @@ def melgan_infer(mel, melgan, path):
     wavfile.write(path, hp.sampling_rate, wav)
 
 def get_melgan():
-    melgan = torch.hub.load('seungwonpark/melgan', 'melgan')
-    melgan.eval()
-    return melgan
+    #melgan = torch.hub.load('seungwonpark/melgan', 'melgan')
+    #melgan.eval()
+    #return melgan
+    from melgan.utils.hparams import load_hparam_str
+    from melgan.model.generator import Generator
+    cp = torch.load("/work/thorsteinn/melgan/chkpt/a2vocoder/a2vocoder_aca5990_3350.pt")
+    hp = load_hparam_str(cp["hp_str"])
+    model = Generator(hp.audio.n_mel_channels).cuda()
+    model.load_state_dict(cp["model_g"])
+    model.eval(inference=False)
+    return model
 
 def pad_1D(inputs, PAD=0):
 

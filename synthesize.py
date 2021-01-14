@@ -56,13 +56,14 @@ def synthesize(model, waveglow, melgan, text, sentence, prefix=''):
         os.makedirs(hp.test_path)
 
     sentence_id = sentence[:30]
-    Audio.tools.inv_mel_spec(mel_postnet, os.path.join(hp.test_path, '{}_griffin_lim_{}.wav'.format(prefix, sentence_id)))
+    #Audio.tools.inv_mel_spec(mel_postnet, os.path.join(hp.test_path, '{}_griffin_lim_{}.wav'.format(prefix, sentence_id)))
     if waveglow is not None:
         utils.waveglow_infer(mel_postnet_torch, waveglow, os.path.join(hp.test_path, '{}_{}_{}.wav'.format(prefix, hp.vocoder, sentence_id)))
     if melgan is not None:
-        utils.melgan_infer(mel_postnet_torch, melgan, os.path.join(hp.test_path, '{}_{}_{}.wav'.format(prefix, hp.vocoder, sentence_id)))
+        #utils.melgan_infer(mel_postnet_torch, melgan, os.path.join(hp.test_path, '{}_{}_{}.wav'.format(prefix, hp.vocoder, sentence_id)))
+        utils.melgan_infer(mel_postnet_torch, melgan, os.path.join(hp.test_path, '{}.wav'.format(prefix, hp.vocoder, sentence_id)))
     
-    utils.plot_data([(mel_postnet.numpy(), f0_output, energy_output)], ['Synthesized Spectrogram'], filename=os.path.join(hp.test_path, '{}_{}.png'.format(prefix, sentence_id)))
+    #utils.plot_data([(mel_postnet.numpy(), f0_output, energy_output)], ['Synthesized Spectrogram'], filename=os.path.join(hp.test_path, '{}_{}.png'.format(prefix, sentence_id)))
 
 
 if __name__ == "__main__":
@@ -95,6 +96,40 @@ if __name__ == "__main__":
         "Diogo Jota, leikmaður Liverpool, er mjög ósáttur með EA Sports og sú einkunn sem þeir hafa gefið honum í FIFA 21 leiknum. EA Sports uppfærði ekki tölfræðina hans á þessu tímabili.",
     ]
 
+
+    sentences = [
+"Máltækni M S c",
+
+"Með máltækni er þróaður búnaður sem getur unnið með og skilið náttúruleg tungumál og stuðlað að notkun þeirra í samskiptum manns og tölvu. Hverjir kannast ekki við tæki eða hugbúnað frá Apple, Amazon, Facebook, Google og Microsoft sem hægt er að stýra með tali eða texta",
+
+"Spennandi störf á alþjóðlegum vettvangi",
+
+"Að námi loknu ættu nemendur að geta starfað við hugbúnaðarþróun í máltækni eða á sviðum þar sem vélrænu námi er beitt.",
+
+"Jafnframt ætti námið að skapa grundvöll fyrir störfum á alþjóðlegum vettvangi því eftirspurn eftir starfskröftum með þessa þekkingu er alltaf að aukast. Nægir hér að nefna að tæki eða hugbúnaður, sem stórfyrirtæki eins og Apple, Amazon, Facebook, Google og Microsoft þróa, krefjast þekkingar á máltækni.",
+
+"M S c gráða ef námið er klárað í H R",
+
+"Nemandi sem skráður er í H R útskrifast með M S c gráðu í máltækni en nemandi sem skráður er í H Í útskrifast með M A gráðu í máltækni. Sérstakar námsreglur gilda um meistaranámið í hvorum skóla fyrir sig og skulu nemendur lúta námsreglum heimaskóla síns.",
+
+"Hægt að stunda doktorsnám",
+
+"Markmið með náminu er tvíþætt, annars vegar að útskrifa nemendur með þekkingu til að stýra verkefnum og útfæra lausnir á sviði máltækni, hins vegar að undirbúa nemendur undir doktorsnám á sviðinu.",
+
+"Skipulag námsins í H R",
+
+"Um er að ræða tveggja ára, þverfaglegt, hundrað og tuttugu eininga nám. Einingarnar skiptast í fjörtíu og fjórar til sjötíu og átta einingar úr námskeiðum á meistarastigi, kennd í H R og H Í, núll til þrjátíu einingar úr grunnnámskeiðum í tölvunarfræði, núll til tíu einingar úr grunnnámskeiðum í málfræði, kennd í H Í, og þrjátíu til sextíu einingar í meistaraprófsverkefni, ritgerð. Samsetning eininga er því sveigjanleg og fer eftir bakgrunni viðkomandi nemanda.",
+
+"Nemendur með B A próf í málvísindum og tungumálum þurfa að taka þrjátíu einingar í grunnnámskeiðum í tölvunarfræði. Þessi námskeið eru metin sem hluti meistaranámsins. Nemendur með aðra undirstöðu gætu þurft að taka grunnnámskeið í bæði málfræði og tölvunarfræði.",
+    ]
+
+    sentences_sol = [
+"Sólskin",
+"Þú ert mitt sólskyn. Mitt eina sólskyn. Þú gleður mig þegar himinn gránar.",
+"Þú ert mitt sólskyn. Mitt eina sólskyn. Ekki taka sólskyn mér frááááá",
+"Ég er hreiðruð settning",
+"Ég er meira hreiðruð settning",
+    ]
     model = get_FastSpeech2(args.step).to(device)
     melgan = waveglow = None
     if hp.vocoder == 'melgan':
@@ -104,6 +139,6 @@ if __name__ == "__main__":
         waveglow = utils.get_waveglow()
         waveglow.to(device)
     
-    for sentence in sentences:
+    for i, sentence in enumerate(sentences):
         text = preprocess(sentence)
-        synthesize(model, waveglow, melgan, text, sentence, prefix='step_{}'.format(args.step))
+        synthesize(model, waveglow, melgan, text, sentence, prefix='content-{}'.format(i+1))
