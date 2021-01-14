@@ -2,6 +2,7 @@ import os
 from data import ljspeech, blizzard2013, talromur
 import hparams as hp
 
+
 def main():
     in_dir = hp.data_path
 
@@ -12,5 +13,6 @@ def main():
     if hp.dataset.startswith("Talromur"):
         talromur.prepare_align(in_dir)
     
+
 if __name__ == "__main__":
     main()

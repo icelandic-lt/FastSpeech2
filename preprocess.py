@@ -2,6 +2,7 @@ import os
 from data import ljspeech, blizzard2013, talromur
 import hparams as hp
 
+
 def write_metadata(train, val, out_dir):
     with open(os.path.join(out_dir, 'train.txt'), 'w', encoding='utf-8') as f:
         for m in train:
@@ -9,6 +10,7 @@ def write_metadata(train, val, out_dir):
     with open(os.path.join(out_dir, 'val.txt'), 'w', encoding='utf-8') as f:
         for m in val:
             f.write(m + '\n')
+
 
 def main():
     in_dir = hp.data_path
