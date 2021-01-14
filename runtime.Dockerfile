@@ -8,7 +8,6 @@ WORKDIR /opt/fastspeech2
 COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 RUN pip3 install git+https://github.com/sequitur-g2p/sequitur-g2p@master
-RUN pip3 install torch==1.6
 
 RUN git clone https://github.com/seungwonpark/melgan.git
 RUN pip3 install -r melgan/requirements.txt

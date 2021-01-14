@@ -162,7 +162,7 @@ def get_melgan(full_path=None):
         model = model.cuda()
     model.load_state_dict(cp["model_g"])
     model.eval(inference=False)
-    melgan.to(device)
+    model.to(device)
     return model
 
 
