@@ -12,13 +12,15 @@ from text import text_to_sequence, sequence_to_text
 import hparams as hp
 import utils
 import audio as Audio
-from g2p_is import translate as g2p
+from g2p_is import load_g2p, translate as g2p
+
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def preprocess(text):
+
+def preprocess(text, g2p_model):
     text = text.rstrip(punctuation)
-    phone = g2p(text)
+    phone = g2p(text, g2p_model)
     phone = list(filter(lambda p: p != ' ', phone))
     phone = '{'+ '}{'.join(phone) + '}'
     phone = re.sub(r'\{[^\w\s]?\}', '{sp}', phone)
@@ -30,13 +32,18 @@ def preprocess(text):
 
     return torch.from_numpy(sequence).long().to(device)
 
-def get_FastSpeech2(num):
-    checkpoint_path = os.path.join(hp.checkpoint_path, "checkpoint_{}.pth.tar".format(num))
+
+def get_FastSpeech2(num, full_path=None):
+    if full_path:
+        checkpoint_path = full_path
+    else:
+        checkpoint_path = os.path.join(hp.checkpoint_path, "checkpoint_{}.pth.tar".format(num))
     model = nn.DataParallel(FastSpeech2())
-    model.load_state_dict(torch.load(checkpoint_path)['model'])
+    model.load_state_dict(torch.load(checkpoint_path, map_location=device)['model'])
     model.requires_grad = False
     model.eval()
     return model
+
 
 def synthesize(model, waveglow, melgan, text, sentence, prefix=''):
     sentence = sentence[:200] # long filename will result in OS Error
@@ -69,8 +76,14 @@ def synthesize(model, waveglow, melgan, text, sentence, prefix=''):
 if __name__ == "__main__":
     # Test
     parser = argparse.ArgumentParser()
+    parser.add_argument('--model-fs', type=str)
+    parser.add_argument('--model-melgan', type=str)
+    parser.add_argument('--model-g2p', type=str)
     parser.add_argument('--step', type=int, default=30000)
     args = parser.parse_args()
+
+    if not args.model_g2p:
+        raise argparse.ArgumentTypeError("G2P model missing")
     
     sentences = [
         "Advanced text to speech models such as Fast Speech can synthesize speech significantly faster than previous auto regressive models with comparable quality. The training of Fast Speech model relies on an auto regressive teacher model for duration prediction and knowledge distillation, which can ease the one to many mapping problem in T T S. However, Fast Speech has several disadvantages, 1, the teacher student distillation pipeline is complicated, 2, the duration extracted from the teacher model is not accurate enough, and the target mel spectrograms distilled from teacher model suffer from information loss due to data simplification, both of which limit the voice quality.",
@@ -95,7 +108,6 @@ if __name__ == "__main__":
         "Rómeó og Júlía er saga af sannri ást en um leið ástsýki og ungæðishætti. Í forgrunni verður mögnuð barátta ungrar konu gegn yfirþyrmandi feðraveldi. Fegurstu sögurnar geta sprottið upp úr hræðilegustu aðstæðunum.",
         "Diogo Jota, leikmaður Liverpool, er mjög ósáttur með EA Sports og sú einkunn sem þeir hafa gefið honum í FIFA 21 leiknum. EA Sports uppfærði ekki tölfræðina hans á þessu tímabili.",
     ]
-
 
     sentences = [
 "Máltækni M S c",
@@ -130,15 +142,17 @@ if __name__ == "__main__":
 "Ég er hreiðruð settning",
 "Ég er meira hreiðruð settning",
     ]
-    model = get_FastSpeech2(args.step).to(device)
+
+    model = get_FastSpeech2(args.step, full_path=args.model_fs).to(device)
     melgan = waveglow = None
     if hp.vocoder == 'melgan':
-        melgan = utils.get_melgan()
+        melgan = utils.get_melgan(full_path=args.model_melgan)
         melgan.to(device)
     elif hp.vocoder == 'waveglow':
         waveglow = utils.get_waveglow()
         waveglow.to(device)
-    
+    g2p_model = load_g2p(args.model_g2p)
+
     for i, sentence in enumerate(sentences):
-        text = preprocess(sentence)
+        text = preprocess(sentence, g2p_model)
         synthesize(model, waveglow, melgan, text, sentence, prefix='content-{}'.format(i+1))

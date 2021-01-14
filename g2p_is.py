@@ -19,14 +19,11 @@ def load_g2p(model_path):
     return model
 
 
-g2p = load_g2p("/models/g2p_talromur/ipd_clean_slt2018.mdl")
-
-
-def translate(text):
+def translate(text, g2p_model):
     text = text.replace(",", " ,")
     text = text.replace(".", " .")
 
-    translator = Translator(g2p)
+    translator = Translator(g2p_model)
     phone = []
     for w in text.split(" "):
         try:
@@ -39,6 +36,7 @@ def translate(text):
         except Translator.TranslationFailure:
             pass
     return phone
+
 
 if __name__ == "__main__":
     t = translate("halló, þetta er á íslensku")
