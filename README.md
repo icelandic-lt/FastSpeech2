@@ -45,6 +45,22 @@ For example, one can increase the speaking rate by 20 % and decrease the volume 
 python3 synthesis.py --step 300000 --duration_control 0.8 --energy_control 0.8
 ```
 
+## Docker
+
+This code is configured to run in a docker container, both including CUDA support or without it - only on CPU.
+
+First build the container
+
+```
+docker build -f runtime.Dockerfile --tag faststpeeh2:latest .
+```
+
+Then run with
+
+```
+docker run -v /full/path/to/models:/opt/fastspeech2/models -v /full/path/to/results:/opt/fastspeech2/results fastspeech2:latest
+```
+
 # Training
 
 ## Datasets
