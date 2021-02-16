@@ -153,6 +153,7 @@ def get_melgan(full_path=None):
         return melgan
     
     # make sure to clone seungwonpark/melgan
+    print("use local vocoder")
     from melgan.utils.hparams import load_hparam_str
     from melgan.model.generator import Generator
     cp = torch.load(full_path, map_location=device)

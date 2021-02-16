@@ -49,10 +49,6 @@ def get_FastSpeech2(num, full_path=None):
     return model
 
 
-def _write_index_line(fout, model, group, fname, text):
-    fout.write("\t".join([model, group, fname, text)]
-
-
 def synthesize(model, waveglow, melgan, text, sentence, prefix='', duration_control=1.0, pitch_control=1.0, energy_control=1.0):
     src_len = torch.from_numpy(np.array([text.shape[1]])).to(device)
 
@@ -103,6 +99,7 @@ if __name__ == "__main__":
     
     sentences = read_sentences(args.sentences)
     model = get_FastSpeech2(args.step, full_path=args.model_fs).to(device)
+
     melgan = waveglow = None
     if hp.vocoder == 'melgan':
         melgan = utils.get_melgan(full_path=args.model_melgan)

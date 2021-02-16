@@ -19,15 +19,21 @@ def load_g2p(model_path):
     return model
 
 
-def translate(text, g2p_model):
+g2p = load_g2p("/models/g2p_talromur/ipd_clean_slt2018.mdl")
+
+
+def translate(text):
     text = text.replace(",", " ,")
     text = text.replace(".", " .")
+    text = text.replace("?", " ?")
+    text = text.replace(":", " .")
+    text = text.replace("\"", "")
 
-    translator = Translator(g2p_model)
+    translator = Translator(g2p)
     phone = []
     for w in text.split(" "):
         try:
-            if w in [".", ","]:
+            if w in [".", ",", "?"]:
                 phone.append("sp")
             else:
                 phones = translator(w.lower())
@@ -36,7 +42,6 @@ def translate(text, g2p_model):
         except Translator.TranslationFailure:
             pass
     return phone
-
 
 if __name__ == "__main__":
     t = translate("halló, þetta er á íslensku")
