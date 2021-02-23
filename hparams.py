@@ -1,8 +1,11 @@
 import os
 
+DATA_ROOT = '/disk/ostrom/scratchdir/s2063518/'
+FS_ROOT= os.path.join(DATA_ROOT, 'fs_data/')
+
 # Dataset
-dataset = "Talromur-b"
-data_path = "/data/talromur/b/"
+dataset = "Talromur-?"
+#data_path = os.path.join(DATA_ROOT, 'talromur', 'a')
 #dataset = "LJSpeech"
 #data_path = "/data/LJSpeech/LJSpeech-1.1"
 #dataset = "Blizzard2013"
@@ -77,12 +80,13 @@ n_bins = 256
 
 
 # Checkpoints and synthesis path
-preprocessed_path = os.path.join("./preprocessed/", dataset)
-checkpoint_path = os.path.join("./ckpt/", dataset)
-synth_path = os.path.join("./synth/", dataset)
-eval_path = os.path.join("./eval/", dataset)
-log_path = os.path.join("./log/", dataset)
-test_path = "./results"
+
+preprocessed_path = os.path.join(FS_ROOT, "preprocessed/", dataset)
+checkpoint_path = os.path.join(FS_ROOT, "ckpt/", dataset)
+synth_path = os.path.join(FS_ROOT, "synth/", dataset)
+eval_path = os.path.join(FS_ROOT, "eval/", dataset)
+log_path = os.path.join(FS_ROOT, "log/", dataset)
+test_path = os.path.join(FS_ROOT, "results")
 
 
 # Optimizer

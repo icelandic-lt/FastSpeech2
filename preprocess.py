@@ -1,4 +1,5 @@
 import os
+import sys
 from data import ljspeech, blizzard2013, talromur
 import hparams as hp
 
@@ -13,8 +14,14 @@ def write_metadata(train, val, out_dir):
 
 
 def main():
-    in_dir = hp.data_path
-    out_dir = hp.preprocessed_path
+    if len(sys.argv) > 1:
+        in_dir = sys.argv[1]
+        out_dir = sys.argv[2]
+        dataset_name = sys.argv[3]
+    else:
+        in_dir = hp.data_path
+        out_dir = hp.preprocessed_path
+        dataset_name = ''
     mel_out_dir = os.path.join(out_dir, "mel")
     if not os.path.exists(mel_out_dir):
         os.makedirs(mel_out_dir, exist_ok=True)
@@ -33,7 +40,7 @@ def main():
     if hp.dataset == "Blizzard2013":
         train, val = blizzard2013.build_from_path(in_dir, out_dir)
     if hp.dataset.startswith("Talromur"):
-        train, val = talromur.build_from_path(in_dir, out_dir)
+        train, val = talromur.build_from_path(in_dir, out_dir, dataset=dataset_name)
     write_metadata(train, val, out_dir)
 
 

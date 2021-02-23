@@ -8,31 +8,39 @@ import audio as Audio
 from utils import get_alignment
 import hparams as hp
 import librosa
+from tqdm import tqdm
 
 
 def prepare_align(in_dir):
     pass  # Already has tokens
 
 
-def build_from_path(in_dir, out_dir):
+def build_from_path(in_dir, out_dir, dataset=''):
     index = 1
     train = list()
     val = list()
     f0_max = energy_max = 0
     f0_min = energy_min = 1000000
     n_frames = 0
+
+    if len(dataset) == 0:
+        # If dataset argument is not supplied, use the one
+        # in hparams
+        dataset = hp.dataset
+
+    num_lines = sum(1 for _ in open(os.path.join(in_dir, 'index.tsv'), 'r'))
     with open(os.path.join(in_dir, 'index.tsv'), encoding='utf-8') as f:
-        for line in f:
+        for line in tqdm(f, total=num_lines):
             parts = line.strip().split('\t')
             basename = parts[0]
             text = parts[2]
-            
-            ret = process_utterance(in_dir, out_dir, basename)
+
+            ret = process_utterance(in_dir, out_dir, basename, dataset)
             if ret is None:
                 continue
             else:
                 info, f_max, f_min, e_max, e_min, n = ret
-            
+
             if int(basename[-2:]) > 94:
                 val.append(info)
             else:
@@ -47,7 +55,7 @@ def build_from_path(in_dir, out_dir):
             energy_max = max(energy_max, e_max)
             energy_min = min(energy_min, e_min)
             n_frames += n
-    
+
     with open(os.path.join(out_dir, 'stat.txt'), 'w', encoding='utf-8') as f:
         strs = ['Total time: {} hours'.format(n_frames*hp.hop_length/hp.sampling_rate/3600),
                 'Total frames: {}'.format(n_frames),
@@ -58,14 +66,14 @@ def build_from_path(in_dir, out_dir):
         for s in strs:
             print(s)
             f.write(s+'\n')
-    
+
     return [r for r in train if r is not None], [r for r in val if r is not None]
 
 
-def process_utterance(in_dir, out_dir, basename):
+def process_utterance(in_dir, out_dir, basename, dataset):
     wav_path = os.path.join(in_dir, 'audio', '{}.wav'.format(basename))
-    tg_path = os.path.join(out_dir, 'TextGrid', '{}.TextGrid'.format(basename)) 
-    
+    tg_path = os.path.join(out_dir, 'TextGrid', '{}.TextGrid'.format(basename))
+
     # Get alignments
     try:
         textgrid = tgt.io.read_textgrid(tg_path)
@@ -96,7 +104,7 @@ def process_utterance(in_dir, out_dir, basename):
     f0 = f0[:sum(duration)]
     if len([f for f in f0 if f != 0]) < 1:
         return None
-    
+
     try:
         # Compute mel-scale spectrogram and energy
         mel_spectrogram, energy = Audio.tools.get_mel_from_wav(torch.FloatTensor(wav))
@@ -108,19 +116,19 @@ def process_utterance(in_dir, out_dir, basename):
         return None
 
     # Save alignment
-    ali_filename = '{}-ali-{}.npy'.format(hp.dataset, basename)
+    ali_filename = '{}-ali-{}.npy'.format(dataset, basename)
     np.save(os.path.join(out_dir, 'alignment', ali_filename), duration, allow_pickle=False)
 
     # Save fundamental prequency
-    f0_filename = '{}-f0-{}.npy'.format(hp.dataset, basename)
+    f0_filename = '{}-f0-{}.npy'.format(dataset, basename)
     np.save(os.path.join(out_dir, 'f0', f0_filename), f0, allow_pickle=False)
 
     # Save energy
-    energy_filename = '{}-energy-{}.npy'.format(hp.dataset, basename)
+    energy_filename = '{}-energy-{}.npy'.format(dataset, basename)
     np.save(os.path.join(out_dir, 'energy', energy_filename), energy, allow_pickle=False)
 
     # Save spectrogram
-    mel_filename = '{}-mel-{}.npy'.format(hp.dataset, basename)
+    mel_filename = '{}-mel-{}.npy'.format(dataset, basename)
     np.save(os.path.join(out_dir, 'mel', mel_filename), mel_spectrogram.T, allow_pickle=False)
-    
+
     return '|'.join([basename, text]), max(f0), min([f for f in f0 if f != 0]), max(energy), min(energy), mel_spectrogram.shape[1]
