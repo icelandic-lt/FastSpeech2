@@ -12,8 +12,8 @@ import audio as Audio
 from synthesize import get_FastSpeech2
 
 
-def _write_index_line(fout, model, group, fname, text):
-    fout.write("\t".join([model, group, fname, text]))
+def _write_index_line(fout, model, group, fname, text, fid):
+    fout.write("\t".join([model, group, fname, text, str(fid)]) + "\n")
 
 
 def main(args):
@@ -22,14 +22,14 @@ def main(args):
 
     # Get dataset
     dataset = Dataset("test.txt")
-    loader = DataLoader(dataset, batch_size=hp.batch_size**2, shuffle=True,
-                        collate_fn=dataset.collate_fn, drop_last=True, num_workers=0)
+    loader = DataLoader(dataset, batch_size=hp.batch_size**2, shuffle=False,
+                        collate_fn=dataset.collate_fn, drop_last=False, num_workers=0)
 
     model = get_FastSpeech2(args.step, full_path=args.model_fs).to(device)
 
     # Load vocoder
     if hp.vocoder == 'melgan':
-        melgan = utils.get_melgan()
+        melgan = utils.get_melgan(full_path=args.model_melgan)
     elif hp.vocoder == 'waveglow':
         waveglow = utils.get_waveglow()
 
@@ -46,11 +46,16 @@ def main(args):
         os.makedirs(test_path)
 
     current_step = args.step
-    findex = open(os.path.join(test_path, "index.tsv"))
+    findex = open(os.path.join(test_path, "index.tsv"), "w")
 
     # Testing
+    print("Generate test audio")
+    prefix = "b"
+    fid = 1
     for i, batchs in enumerate(loader):
         for j, data_of_batch in enumerate(batchs):
+            print("Start batch", j)
+
             # Get Data
             text = torch.from_numpy(
                 data_of_batch["text"]).long().to(device)
@@ -73,52 +78,59 @@ def main(args):
 
             for i in range(len(mel_len)):
                 length = mel_len[i].item()
-                mel_target_torch = mel_target[i, :length].detach(
-                ).unsqueeze(0).transpose(1, 2)
-                mel_target = mel_target[i, :length].detach(
-                ).cpu().transpose(0, 1)
-                mel_torch = mel_output[i, :length].detach(
-                ).unsqueeze(0).transpose(1, 2)
-                mel = mel_output[i, :length].detach().cpu().transpose(0, 1)
-                mel_postnet_torch = mel_postnet_output[i, :length].detach(
-                ).unsqueeze(0).transpose(1, 2)
-                mel_postnet = mel_postnet_output[i, :length].detach(
-                ).cpu().transpose(0, 1)
+                
+                _mel_target_torch = mel_target[i, :length].detach(
+                    ).unsqueeze(0).transpose(1, 2)
+                
+                _mel_target = mel_target[i, :length].detach(
+                    ).cpu().transpose(0, 1)
+                
+                _mel_torch = mel_output[i, :length].detach(
+                    ).unsqueeze(0).transpose(1, 2)
+                
+                _mel = mel_output[i, :length].detach().cpu().transpose(0, 1)
+                
+                _mel_postnet_torch = mel_postnet_output[i, :length].detach(
+                    ).unsqueeze(0).transpose(1, 2)
+                
+                _mel_postnet = mel_postnet_output[i, :length].detach(
+                    ).cpu().transpose(0, 1)
 
-                fname = "step_{}_gt_griffin_lim.wav".format(current_step)
-                Audio.tools.inv_mel_spec(mel_target, os.path.join(hp.test_path, fname))
-                _write_index_line(findex, "Griffin Lim", "vocoder", fname, "")
+                fname = "{}{}_step_{}_gt_griffin_lim.wav".format(prefix, fid, current_step)
+                Audio.tools.inv_mel_spec(_mel_target, os.path.join(hp.test_path, fname))
+                _write_index_line(findex, "Griffin Lim", "vocoder", fname, "", fid)
 
-                fname = "step_{}_griffin_lim.wav".format(current_step)
-                Audio.tools.inv_mel_spec(mel, os.path.join(hp.test_path, fname))
-                _write_index_line(findex, "FastSpeech2 + GL", "tts", fname, "")
+                fname = "{}{}_step_{}_griffin_lim.wav".format(prefix, fid, current_step)
+                Audio.tools.inv_mel_spec(_mel, os.path.join(hp.test_path, fname))
+                _write_index_line(findex, "FastSpeech2 + GL", "tts", fname, "", fid)
 
-                fname = "step_{}_postnet_griffin_lim.wav".format(current_step)
-                Audio.tools.inv_mel_spec(mel_postnet, os.path.join(hp.test_path, fname))
-                _write_index_line(findex, "FastSpeech2 + PN + GL", "tts", fname, "")
+                fname = "{}{}_step_{}_postnet_griffin_lim.wav".format(prefix, fid, current_step)
+                Audio.tools.inv_mel_spec(_mel_postnet, os.path.join(hp.test_path, fname))
+                _write_index_line(findex, "FastSpeech2 + PN + GL", "tts", fname, "", fid)
 
                 if hp.vocoder == 'melgan':
-                    fname = 'step_{}_ground-truth_{}.wav'.format(current_step, hp.vocoder)
-                    utils.melgan_infer(mel_target_torch, melgan, os.path.join(
+                    fname = '{}{}_step_{}_ground-truth_{}.wav'.format(prefix, fid, current_step, hp.vocoder)
+                    utils.melgan_infer(_mel_target_torch, melgan, os.path.join(
                         hp.test_path, fname))
-                    _write_index_line(findex, "Melgan", "vocoder", fname, "")
+                    _write_index_line(findex, "Melgan", "vocoder", fname, "", fid)
 
-                    fname = 'step_{}_{}.wav'.format(current_step, hp.vocoder)
-                    utils.melgan_infer(mel_torch, melgan, os.path.join(hp.test_path, fname))
-                    _write_index_line(findex, "FastSpeech2 + Melgan", "tts", fname, "")
+                    fname = '{}{}_step_{}_{}.wav'.format(prefix, fid, current_step, hp.vocoder)
+                    utils.melgan_infer(_mel_torch, melgan, os.path.join(hp.test_path, fname))
+                    _write_index_line(findex, "FastSpeech2 + Melgan", "tts", fname, "", fid)
 
-                    fname = 'step_{}_postnet_{}.wav'.format(current_step, hp.vocoder)
-                    utils.melgan_infer(mel_postnet_torch, melgan, os.path.join(
+                    fname = '{}{}_step_{}_postnet_{}.wav'.format(prefix, fid, current_step, hp.vocoder)
+                    utils.melgan_infer(_mel_postnet_torch, melgan, os.path.join(
                         hp.test_path, fname))
-                    _write_index_line(findex, "FastSpeech2 + PN + Melgan", "tts", fname, "")
+                    _write_index_line(findex, "FastSpeech2 + PN + Melgan", "tts", fname, "", fid)
 
                 elif hp.vocoder == 'waveglow':
-                    utils.waveglow_infer(mel_torch, waveglow, os.path.join(
+                    utils.waveglow_infer(_mel_torch, waveglow, os.path.join(
                         hp.test_path, 'step_{}_{}.wav'.format(current_step, hp.vocoder)))
-                    utils.waveglow_infer(mel_postnet_torch, waveglow, os.path.join(
+                    utils.waveglow_infer(_mel_postnet_torch, waveglow, os.path.join(
                         hp.test_path, 'step_{}_postnet_{}.wav'.format(current_step, hp.vocoder)))
-                    utils.waveglow_infer(mel_target_torch, waveglow, os.path.join(
+                    utils.waveglow_infer(_mel_target_torch, waveglow, os.path.join(
                         hp.test_path, 'step_{}_ground-truth_{}.wav'.format(current_step, hp.vocoder)))
+                fid += 1
 
 
 if __name__ == "__main__":
@@ -131,3 +143,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     main(args)
+    print("Done")
