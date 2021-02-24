@@ -3,11 +3,14 @@ from data import ljspeech, blizzard2013, talromur
 import hparams as hp
 
 
-def write_metadata(train, val, out_dir):
+def write_metadata(train, val, test, out_dir):
     with open(os.path.join(out_dir, 'train.txt'), 'w', encoding='utf-8') as f:
         for m in train:
             f.write(m + '\n')
     with open(os.path.join(out_dir, 'val.txt'), 'w', encoding='utf-8') as f:
+        for m in val:
+            f.write(m + '\n')
+    with open(os.path.join(out_dir, 'test.txt'), 'w', encoding='utf-8') as f:
         for m in val:
             f.write(m + '\n')
 
@@ -28,13 +31,14 @@ def main():
     if not os.path.exists(energy_out_dir):
         os.makedirs(energy_out_dir, exist_ok=True)
 
+    test = []
     if hp.dataset == "LJSpeech":
         train, val = ljspeech.build_from_path(in_dir, out_dir)
     if hp.dataset == "Blizzard2013":
         train, val = blizzard2013.build_from_path(in_dir, out_dir)
     if hp.dataset.startswith("Talromur"):
-        train, val = talromur.build_from_path(in_dir, out_dir)
-    write_metadata(train, val, out_dir)
+        train, val, test = talromur.build_from_path(in_dir, out_dir)
+    write_metadata(train, val, test, out_dir)
 
 
 if __name__ == "__main__":

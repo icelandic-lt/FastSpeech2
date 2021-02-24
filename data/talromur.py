@@ -18,35 +18,59 @@ def build_from_path(in_dir, out_dir):
     index = 1
     train = list()
     val = list()
+    test = list()
     f0_max = energy_max = 0
     f0_min = energy_min = 1000000
     n_frames = 0
-    with open(os.path.join(in_dir, 'index.tsv'), encoding='utf-8') as f:
-        for line in f:
-            parts = line.strip().split('\t')
-            basename = parts[0]
-            text = parts[2]
-            
-            ret = process_utterance(in_dir, out_dir, basename)
-            if ret is None:
-                continue
-            else:
-                info, f_max, f_min, e_max, e_min, n = ret
-            
-            if int(basename[-2:]) > 94:
-                val.append(info)
-            else:
-                train.append(info)
 
-            if index % 100 == 0:
-                print("Done %d" % index, flush=True)
-            index = index + 1
+    lines = list()
+    if hp.data_split:
+        assert "train" in hp.data_split
+        assert "val" in hp.data_split
+        for key, value in hp.data_split.items():
+            with open(key, encoding="utf-8") as f:
+                for line in f:
+                    lines.append((key, line))
+    else:
+        with open(os.path.join(in_dir, 'index.tsv'), encoding='utf-8') as f:
+            for line in f:
+                parts = line.strip().split('\t')
+                basename = parts[0]
+                if int(basename[-2:]) < 92:
+                    lines.append("train", line)
+                if int(basename[-2:]) < 98:
+                    lines.append("val", line)
+                else:
+                    lines.append("test", line)
 
+    for set_name, line in lines:
+        parts = line.strip().split('\t')
+        basename = parts[0]
+        text = parts[2]
+            
+        ret = process_utterance(in_dir, out_dir, basename)
+        if ret is None:
+            continue
+        else:
+            info, f_max, f_min, e_max, e_min, n = ret
+        
+        if set_name == "train":
+            train.append(info)
+
+            # Only gather stats for training data
             f0_max = max(f0_max, f_max)
             f0_min = min(f0_min, f_min)
             energy_max = max(energy_max, e_max)
             energy_min = min(energy_min, e_min)
             n_frames += n
+        elif set_name == "val":
+            val.append(info)
+        elif set_name == "test":
+            test.append(info)
+
+        if index % 100 == 0:
+            print("Done %d" % index, flush=True)
+        index = index + 1
     
     with open(os.path.join(out_dir, 'stat.txt'), 'w', encoding='utf-8') as f:
         strs = ['Total time: {} hours'.format(n_frames*hp.hop_length/hp.sampling_rate/3600),
@@ -59,7 +83,7 @@ def build_from_path(in_dir, out_dir):
             print(s)
             f.write(s+'\n')
     
-    return [r for r in train if r is not None], [r for r in val if r is not None]
+    return [r for r in train if r is not None], [r for r in val if r is not None], [r for r in test if r is not none]
 
 
 def process_utterance(in_dir, out_dir, basename):

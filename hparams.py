@@ -3,6 +3,7 @@ import os
 # Dataset
 dataset = "Talromur-b"
 data_path = "/data/talromur/b/"
+data_split = None
 #dataset = "LJSpeech"
 #data_path = "/data/LJSpeech/LJSpeech-1.1"
 #dataset = "Blizzard2013"
@@ -81,6 +82,7 @@ preprocessed_path = os.path.join("./preprocessed/", dataset)
 checkpoint_path = os.path.join("./ckpt/", dataset)
 synth_path = os.path.join("./synth/", dataset)
 eval_path = os.path.join("./eval/", dataset)
+test_path = os.path.join("./test/", dataset)
 log_path = os.path.join("./log/", dataset)
 test_path = "./results"
 
