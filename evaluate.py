@@ -51,6 +51,11 @@ def evaluate(model, step, vocoder=None):
     for i, batchs in enumerate(loader):
         for j, data_of_batch in enumerate(batchs):
             # Get Data
+            speaker_ids = None
+            if hp.multi_speaker:
+                speaker_ids = torch.tensor(
+                    data_of_batch["spk_ids"]).to(torch.int64).to(device)
+
             id_ = data_of_batch["id"]
             text = torch.from_numpy(data_of_batch["text"]).long().to(device)
             mel_target = torch.from_numpy(
@@ -70,7 +75,7 @@ def evaluate(model, step, vocoder=None):
             with torch.no_grad():
                 # Forward
                 mel_output, mel_postnet_output, log_duration_output, f0_output, energy_output, src_mask, mel_mask, out_mel_len = model(
-                    text, src_len, mel_len, D, f0, energy, max_src_len, max_mel_len)
+                    text, src_len, mel_len, D, f0, energy, max_src_len, max_mel_len, speaker_ids)
 
                 # Cal Loss
                 mel_loss, mel_postnet_loss, d_loss, f_loss, e_loss = Loss(

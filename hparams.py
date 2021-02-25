@@ -4,13 +4,21 @@ DATA_ROOT = '/disk/ostrom/scratchdir/s2063518/'
 FS_ROOT= os.path.join(DATA_ROOT, 'fs_data/')
 
 # Dataset
-dataset = "Talromur-?"
+dataset = "Talromur-full"
 #data_path = os.path.join(DATA_ROOT, 'talromur', 'a')
 #dataset = "LJSpeech"
 #data_path = "/data/LJSpeech/LJSpeech-1.1"
 #dataset = "Blizzard2013"
 #data_path = "./Blizzard-2013/train/segmented/"
 
+# Multi Speaker stuff
+multi_speaker = True
+speaker_embed_dim = 128 # ! SET TO 0 IF NO SPEAKER ENCODER
+speaker_embed_weight_std = 0.1
+num_speakers = 8 # Only needed for inference
+
+# WandB
+use_wandb = True
 
 # Text
 #text_cleaners = ['english_cleaners']

@@ -110,6 +110,10 @@ __pycache__
 # MFA
 montreal-forced-aligner/
 
+#Sequitur
+ipd_clean_slt2018.mdl
+
+
 # data, checkpoint, and models
 preprocessed/
 ckpt/
@@ -118,4 +122,4 @@ synth/
 log/
 eval/
 waveglow/pretrained_model/*
-
+wandb/

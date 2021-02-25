@@ -11,6 +11,36 @@ import librosa
 from tqdm import tqdm
 
 
+def get_speaker_table():
+    '''
+    Returns e.g.
+    {'s27': 0, 's29': 1, ...},
+    {0: 's27', 1: 's29', ...}
+    '''
+    # IDs of speakers in the regular order
+    spk_table = {
+        's27': 0,
+        's29': 1,
+        's38': 2,
+        's34': 3,
+        's46': 4,
+        's40': 5,
+        's48': 6,
+        's49': 7}
+    return spk_table, {v:k for k, v in spk_table.items()}
+
+
+def get_speaker_id_to_dirname():
+    prefix = 'Talromur-'
+    names, ind = 'abcdefgh', 0
+    spk_table, _ = get_speaker_table()
+    mapping = {}
+    for key, val in spk_table.items():
+        mapping[key] = prefix+names[ind]
+        ind += 1
+    return mapping
+
+
 def prepare_align(in_dir):
     pass  # Already has tokens
 
@@ -132,3 +162,7 @@ def process_utterance(in_dir, out_dir, basename, dataset):
     np.save(os.path.join(out_dir, 'mel', mel_filename), mel_spectrogram.T, allow_pickle=False)
 
     return '|'.join([basename, text]), max(f0), min([f for f in f0 if f != 0]), max(energy), min(energy), mel_spectrogram.shape[1]
+
+
+if __name__ == '__main__':
+    print(speaker_id_to_dirname())

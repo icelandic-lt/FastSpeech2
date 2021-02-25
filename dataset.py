@@ -19,23 +19,40 @@ class Dataset(Dataset):
             os.path.join(hparams.preprocessed_path, filename))
         self.sort = sort
 
+        if hparams.multi_speaker:
+            from data import talromur
+            self.speaker_table, self.inv_speaker_table = talromur.get_speaker_table()
+            self.speaker_id_dirname = talromur.get_speaker_id_to_dirname()
+
     def __len__(self):
         return len(self.text)
 
     def __getitem__(self, idx):
         basename = self.basename[idx]
         phone = np.array(text_to_sequence(self.text[idx], []))
+
+        preprocessed_path = hparams.preprocessed_path
+        dataset = hparams.dataset
+        if hparams.multi_speaker and hparams.dataset.startswith('Talromur'):
+            # Instead of creating a new preprocessing directory with the data
+            # from all Talromur collections, we just fetch the data from each
+            # Talromur preprocess directory
+            dataset = self.speaker_id_dirname[basename.split('-')[0]]
+            preprocessed_path = os.path.join(
+                os.path.dirname(preprocessed_path),
+                dataset)
+
         mel_path = os.path.join(
-            hparams.preprocessed_path, "mel", "{}-mel-{}.npy".format(hparams.dataset, basename))
+            preprocessed_path, "mel", "{}-mel-{}.npy".format(dataset, basename))
         mel_target = np.load(mel_path)
         D_path = os.path.join(
-            hparams.preprocessed_path, "alignment", "{}-ali-{}.npy".format(hparams.dataset, basename))
+            preprocessed_path, "alignment", "{}-ali-{}.npy".format(dataset, basename))
         D = np.load(D_path)
         f0_path = os.path.join(
-            hparams.preprocessed_path, "f0", "{}-f0-{}.npy".format(hparams.dataset, basename))
+            preprocessed_path, "f0", "{}-f0-{}.npy".format(dataset, basename))
         f0 = np.load(f0_path)
         energy_path = os.path.join(
-            hparams.preprocessed_path, "energy", "{}-energy-{}.npy".format(hparams.dataset, basename))
+            preprocessed_path, "energy", "{}-energy-{}.npy".format(dataset, basename))
         energy = np.load(energy_path)
 
         sample = {"id": basename,
@@ -49,6 +66,8 @@ class Dataset(Dataset):
 
     def reprocess(self, batch, cut_list):
         ids = [batch[ind]["id"] for ind in cut_list]
+        if hparams.multi_speaker:
+            speaker_ids = [self.speaker_table[_id.split('-')[0]] for _id in ids]
         texts = [batch[ind]["text"] for ind in cut_list]
         mel_targets = [batch[ind]["mel_target"] for ind in cut_list]
         Ds = [batch[ind]["D"] for ind in cut_list]
@@ -81,6 +100,8 @@ class Dataset(Dataset):
                "energy": energies,
                "src_len": length_text,
                "mel_len": length_mel}
+        if hparams.multi_speaker:
+            out.update({'spk_ids': speaker_ids})
 
         return out
 

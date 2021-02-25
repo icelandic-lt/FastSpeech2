@@ -31,8 +31,8 @@ class VarianceAdaptor(nn.Module):
             np.log(hp.f0_min), np.log(hp.f0_max), hp.n_bins-1)), requires_grad=False)
         self.energy_bins = nn.Parameter(torch.linspace(
             hp.energy_min, hp.energy_max, hp.n_bins-1), requires_grad=False)
-        self.pitch_embedding = nn.Embedding(hp.n_bins, hp.encoder_hidden)
-        self.energy_embedding = nn.Embedding(hp.n_bins, hp.encoder_hidden)
+        self.pitch_embedding = nn.Embedding(hp.n_bins, hp.encoder_hidden + hp.speaker_embed_dim)
+        self.energy_embedding = nn.Embedding(hp.n_bins, hp.encoder_hidden + hp.speaker_embed_dim)
 
     def forward(self, x, src_mask, mel_mask=None, duration_target=None, pitch_target=None, energy_target=None, max_len=None, d_control=1.0, p_control=1.0, e_control=1.0):
 
@@ -110,10 +110,10 @@ class VariancePredictor(nn.Module):
     def __init__(self):
         super(VariancePredictor, self).__init__()
 
-        self.input_size = hp.encoder_hidden
-        self.filter_size = hp.variance_predictor_filter_size
+        self.input_size = hp.encoder_hidden + hp.speaker_embed_dim
+        self.filter_size = hp.variance_predictor_filter_size + hp.speaker_embed_dim
         self.kernel = hp.variance_predictor_kernel_size
-        self.conv_output_size = hp.variance_predictor_filter_size
+        self.conv_output_size = hp.variance_predictor_filter_size + hp.speaker_embed_dim
         self.dropout = hp.variance_predictor_dropout
 
         self.conv_layer = nn.Sequential(OrderedDict([
@@ -186,3 +186,21 @@ class Conv(nn.Module):
         x = x.contiguous().transpose(1, 2)
 
         return x
+
+
+class SpeakerIntegrator(nn.Module):
+    def __init__(self):
+        super(SpeakerIntegrator, self).__init__()
+
+    def forward(self, x, speaker_embeddings):
+        '''
+        Repeats the speaker embeddings across the temporal
+        dimension of the batch
+
+        x: [bz, t, fd]
+        speaker_embeddings: [bz, se_fd]
+        returns: [bz, t, fd+se_fd]
+        '''
+        speaker_embeddings = speaker_embeddings.unsqueeze(1)
+        speaker_embeddings = speaker_embeddings.repeat(1, x.shape[1], 1)
+        return torch.cat((x, speaker_embeddings), dim=2)

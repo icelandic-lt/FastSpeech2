@@ -7,6 +7,7 @@ import numpy as np
 import argparse
 import os
 import time
+import wandb
 
 from fastspeech2 import FastSpeech2
 from loss import FastSpeech2Loss
@@ -30,10 +31,20 @@ def main(args):
                         collate_fn=dataset.collate_fn, drop_last=True, num_workers=0)
 
     # Define model
-    model = nn.DataParallel(FastSpeech2()).to(device)
+    if hp.multi_speaker:
+        num_speakers = len(dataset.speaker_table.keys())
+        model = nn.DataParallel(
+            FastSpeech2(num_speakers=num_speakers)).to(device)
+    else:
+        model = nn.DataParallel(FastSpeech2()).to(device)
     print("Model Has Been Defined")
     num_param = utils.get_param_num(model)
     print('Number of FastSpeech2 Parameters:', num_param)
+
+    # Initialize Weights and Biases
+    if hp.use_wandb:
+        wandb.init(project='FastSpeech-2', config=utils.wandb_hparams())
+        wandb.watch(model)
 
     # Optimizer and loss
     optimizer = torch.optim.Adam(
@@ -95,6 +106,10 @@ def main(args):
                     epoch*len(loader)*hp.batch_size + 1
 
                 # Get Data
+                speaker_ids = None
+                if hp.multi_speaker:
+                    speaker_ids = torch.tensor(
+                        data_of_batch["spk_ids"]).to(torch.int64).to(device)
                 text = torch.from_numpy(
                     data_of_batch["text"]).long().to(device)
                 mel_target = torch.from_numpy(
@@ -114,7 +129,7 @@ def main(args):
 
                 # Forward
                 mel_output, mel_postnet_output, log_duration_output, f0_output, energy_output, src_mask, mel_mask, _ = model(
-                    text, src_len, mel_len, D, f0, energy, max_src_len, max_mel_len)
+                    text, src_len, mel_len, D, f0, energy, max_src_len, max_mel_len, speaker_ids)
 
                 # Cal Loss
                 mel_loss, mel_postnet_loss, d_loss, f_loss, e_loss = Loss(
@@ -186,6 +201,12 @@ def main(args):
                     train_logger.add_scalar('Loss/F0_loss', f_l, current_step)
                     train_logger.add_scalar(
                         'Loss/energy_loss', e_l, current_step)
+                    if hp.use_wandb:
+                        wandb.log({
+                            'total_loss': t_l,
+                            'mel_postnet_loss': m_p_l,
+                            'duration_loss': d_l,
+                            'energy_loss': e_l})
 
                 if current_step % hp.save_step == 0:
                     torch.save({'model': model.state_dict(), 'optimizer': optimizer.state_dict(
@@ -205,25 +226,47 @@ def main(args):
                     ).unsqueeze(0).transpose(1, 2)
                     mel_postnet = mel_postnet_output[0, :length].detach(
                     ).cpu().transpose(0, 1)
-                    Audio.tools.inv_mel_spec(mel, os.path.join(
-                        synth_path, "step_{}_griffin_lim.wav".format(current_step)))
-                    Audio.tools.inv_mel_spec(mel_postnet, os.path.join(
-                        synth_path, "step_{}_postnet_griffin_lim.wav".format(current_step)))
+                    griffin_lim = Audio.tools.inv_mel_spec(mel, os.path.join(
+                        synth_path, "step_{}_griffin_lim.wav".format(current_step)),
+                        return_array=True)
+                    postnet_griffin_lim = Audio.tools.inv_mel_spec(mel_postnet, os.path.join(
+                        synth_path, "step_{}_postnet_griffin_lim.wav".format(current_step)),
+                        return_array=True)
+
+                    speaker_id = 'speaker#0'
+                    if hp.multi_speaker:
+                        speaker_id = f'speaker#{dataset.inv_speaker_table[int(speaker_ids[0])]}'
 
                     if hp.vocoder == 'melgan':
-                        utils.melgan_infer(mel_torch, melgan, os.path.join(
-                            hp.synth_path, 'step_{}_{}.wav'.format(current_step, hp.vocoder)))
-                        utils.melgan_infer(mel_postnet_torch, melgan, os.path.join(
-                            hp.synth_path, 'step_{}_postnet_{}.wav'.format(current_step, hp.vocoder)))
-                        utils.melgan_infer(mel_target_torch, melgan, os.path.join(
-                            hp.synth_path, 'step_{}_ground-truth_{}.wav'.format(current_step, hp.vocoder)))
+                        synth = utils.melgan_infer(mel_torch, melgan, os.path.join(
+                            hp.synth_path, 'step_{}_{}_{}.wav'.format(current_step, speaker_id, hp.vocoder)),
+                            return_array=True)
+                        postnet = utils.melgan_infer(mel_postnet_torch, melgan, os.path.join(
+                            hp.synth_path, 'step_{}_{}_postnet_{}.wav'.format(current_step, speaker_id, hp.vocoder)),
+                            return_array=True)
+                        ground_truth = utils.melgan_infer(mel_target_torch, melgan, os.path.join(
+                            hp.synth_path, 'step_{}_{}_ground-truth_{}.wav'.format(current_step, speaker_id, hp.vocoder)),
+                            return_array=True)
+
+                        if hp.use_wandb:
+                            wandb.log({"Synthesis": [wandb.Audio(
+                                synth, caption="Synthesis", sample_rate=hp.sampling_rate)]})
+                            wandb.log({"Postnet": [wandb.Audio(
+                                synth, caption="Postnet", sample_rate=hp.sampling_rate)]})
+                            wandb.log({"Ground truth": [wandb.Audio(
+                                synth, caption="Ground truth", sample_rate=hp.sampling_rate)]})
+                            wandb.log({"Griffin Lim": [wandb.Audio(
+                                synth, caption="Griffin Lim", sample_rate=hp.sampling_rate)]})
+                            wandb.log({"Griffin Lim Postnet": [wandb.Audio(
+                                synth, caption="Griffin Lim Postnet", sample_rate=hp.sampling_rate)]})
+
                     elif hp.vocoder == 'waveglow':
                         utils.waveglow_infer(mel_torch, waveglow, os.path.join(
-                            hp.synth_path, 'step_{}_{}.wav'.format(current_step, hp.vocoder)))
+                            hp.synth_path, 'step_{}_{}_{}.wav'.format(current_step, speaker_id, hp.vocoder)))
                         utils.waveglow_infer(mel_postnet_torch, waveglow, os.path.join(
-                            hp.synth_path, 'step_{}_postnet_{}.wav'.format(current_step, hp.vocoder)))
+                            hp.synth_path, 'step_{}_{}_postnet_{}.wav'.format(current_step, speaker_id, hp.vocoder)))
                         utils.waveglow_infer(mel_target_torch, waveglow, os.path.join(
-                            hp.synth_path, 'step_{}_ground-truth_{}.wav'.format(current_step, hp.vocoder)))
+                            hp.synth_path, 'step_{}_{}_ground-truth_{}.wav'.format(current_step, speaker_id, hp.vocoder)))
 
                     f0 = f0[0, :length].detach().cpu().numpy()
                     energy = energy[0, :length].detach().cpu().numpy()
@@ -231,9 +274,12 @@ def main(args):
                     energy_output = energy_output[0,
                                                   :length].detach().cpu().numpy()
 
-                    utils.plot_data([(mel_postnet.numpy(), f0_output, energy_output), (mel_target.numpy(), f0, energy)],
-                                    ['Synthetized Spectrogram', 'Ground-Truth Spectrogram'], filename=os.path.join(synth_path, 'step_{}.png'.format(current_step)))
-
+                    figure = utils.plot_data([(mel_postnet.numpy(), f0_output, energy_output), (mel_target.numpy(), f0, energy)],
+                            ['Synthetized Spectrogram', 'Ground-Truth Spectrogram'],
+                            filename=os.path.join(synth_path, 'step_{}.png'.format(current_step)),
+                        return_fig=True)
+                    if hp.use_wandb:
+                        wandb.log({'Spectrogram compare': wandb.Image(figure)})
                 if current_step % hp.eval_step == 0:
                     model.eval()
                     with torch.no_grad():
@@ -253,7 +299,12 @@ def main(args):
                             'Loss/F0_loss', f_l, current_step)
                         val_logger.add_scalar(
                             'Loss/energy_loss', e_l, current_step)
-
+                        if hp.use_wandb:
+                            wandb.log({
+                                'val_total_loss': t_l,
+                                'val_mel_postnet_loss': m_p_l,
+                                'val_duration_loss': d_l,
+                                'val_energy_loss': e_l})
                     model.train()
 
                 end_time = time.perf_counter()

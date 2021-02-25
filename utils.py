@@ -9,6 +9,8 @@ import torch.nn.functional as F
 import numpy as np
 import matplotlib
 import matplotlib
+import hparams as hp
+
 matplotlib.use("Agg")
 
 
@@ -64,7 +66,7 @@ def get_param_num(model):
     return num_param
 
 
-def plot_data(data, titles=None, filename=None):
+def plot_data(data, titles=None, filename=None, return_fig=False):
     fig, axes = plt.subplots(len(data), 1, squeeze=False)
     if titles is None:
         titles = [None for i in range(len(data))]
@@ -100,9 +102,11 @@ def plot_data(data, titles=None, filename=None):
         ax2.yaxis.set_label_position('right')
         ax2.tick_params(labelsize='x-small', colors='darkviolet', bottom=False,
                         labelbottom=False, left=False, labelleft=False, right=True, labelright=True)
-
+    plot_object = fig
     plt.savefig(filename, dpi=200)
     plt.close()
+    if return_fig:
+        return plot_object
 
 
 def get_mask_from_lengths(lengths, max_len=None):
@@ -138,12 +142,13 @@ def waveglow_infer(mel, waveglow, path):
     wavfile.write(path, hp.sampling_rate, wav)
 
 
-def melgan_infer(mel, melgan, path):
+def melgan_infer(mel, melgan, path, return_array=False):
     with torch.no_grad():
         wav = melgan.inference(mel).cpu().numpy()
     wav = wav.astype('int16')
     wavfile.write(path, hp.sampling_rate, wav)
-
+    if return_array:
+        return wav
 
 def get_melgan(full_path=None):
     if not full_path:
@@ -151,7 +156,7 @@ def get_melgan(full_path=None):
         melgan.eval()
         melgan.to(device)
         return melgan
-    
+
     # make sure to clone seungwonpark/melgan
     from melgan.utils.hparams import load_hparam_str
     from melgan.model.generator import Generator
@@ -219,3 +224,9 @@ def pad(input_ele, mel_max_length=None):
         out_list.append(one_batch_padded)
     out_padded = torch.stack(out_list)
     return out_padded
+
+def wandb_hparams():
+    attrs = [item for item in dir(hp) if
+        (not item.startswith("__") and not type(item)=='module')]
+    return {attr: str(getattr(hp, attr)) for attr in attrs}
+
