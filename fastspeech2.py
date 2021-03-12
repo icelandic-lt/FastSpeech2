@@ -54,14 +54,18 @@ class FastSpeech2(nn.Module):
         speaker_ids=None,
         d_control=1.0,
         p_control=1.0,
-        e_control=1.0
+        e_control=1.0,
+        speaker_embeddings=None
     ):
         src_mask = get_mask_from_lengths(src_len, max_src_len)
         mel_mask = get_mask_from_lengths(
             mel_len, max_mel_len) if mel_len is not None else None
 
         encoder_output = self.encoder(src_seq, src_mask)
-        if self.multi_speaker and speaker_ids is not None:
+        if speaker_embeddings is not None:
+            # use during inference
+            encoder_output = self.speaker_integrator(encoder_output, speaker_embeddings)
+        elif self.multi_speaker and speaker_ids is not None:
             speaker_embeddings = self.embed_speakers(speaker_ids)
             encoder_output = self.speaker_integrator(encoder_output, speaker_embeddings)
         if self.encode_prosody and mel_tgt is not None:
@@ -85,7 +89,6 @@ class FastSpeech2(nn.Module):
             mel_output_postnet = mel_output
 
         return mel_output, mel_output_postnet, d_prediction, p_prediction, e_prediction, src_mask, mel_mask, mel_len
-
 
 if __name__ == "__main__":
     # Test
