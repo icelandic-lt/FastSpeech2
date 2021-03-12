@@ -20,9 +20,14 @@ class Dataset(Dataset):
         self.sort = sort
 
         if hparams.multi_speaker:
-            from data import talromur
-            self.speaker_table, self.inv_speaker_table = talromur.get_speaker_table()
-            self.speaker_id_dirname = talromur.get_speaker_id_to_dirname()
+            if hparams.dataset.startswith('Talromur'):
+                from data import talromur
+                self.speaker_id_dirname = talromur.get_speaker_id_to_dirname()
+                self.speaker_table, self.inv_speaker_table = talromur.get_speaker_table()
+            elif hparams.dataset == 'LibriTTS':
+                from data import libritts
+                self.speaker_table, self.inv_speaker_table = libritts.get_speaker_table()
+
 
     def __len__(self):
         return len(self.text)
@@ -30,7 +35,6 @@ class Dataset(Dataset):
     def __getitem__(self, idx):
         basename = self.basename[idx]
         phone = np.array(text_to_sequence(self.text[idx], []))
-
         preprocessed_path = hparams.preprocessed_path
         dataset = hparams.dataset
         if hparams.multi_speaker and hparams.dataset.startswith('Talromur'):
@@ -67,7 +71,12 @@ class Dataset(Dataset):
     def reprocess(self, batch, cut_list):
         ids = [batch[ind]["id"] for ind in cut_list]
         if hparams.multi_speaker:
-            speaker_ids = [self.speaker_table[_id.split('-')[0]] for _id in ids]
+            if hparams.dataset.startswith('Talromur'):
+                # fname format: <speaker_id>-<rec_id>.wav
+                speaker_ids = [self.speaker_table[_id.split('-')[0]] for _id in ids]
+            elif hparams.dataset == 'LibriTTS':
+                speaker_ids = [self.speaker_table[_id.split('_')[0]] for _id in ids]
+
         texts = [batch[ind]["text"] for ind in cut_list]
         mel_targets = [batch[ind]["mel_target"] for ind in cut_list]
         Ds = [batch[ind]["D"] for ind in cut_list]
@@ -129,8 +138,8 @@ class Dataset(Dataset):
 
 if __name__ == "__main__":
     # Test
-    dataset = Dataset('val.txt')
-    training_loader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=dataset.collate_fn,
+    dataset = Dataset('train.txt')
+    training_loader = DataLoader(dataset, batch_size=10, shuffle=False, collate_fn=dataset.collate_fn,
                                  drop_last=True, num_workers=0)
     total_step = hparams.epochs * len(training_loader) * hparams.batch_size
 
@@ -139,8 +148,11 @@ if __name__ == "__main__":
         for j, data_of_batch in enumerate(batchs):
             mel_target = torch.from_numpy(
                 data_of_batch["mel_target"]).float().to(device)
+            print(mel_target.shape)
             D = torch.from_numpy(data_of_batch["D"]).int().to(device)
             if mel_target.shape[1] == D.sum().item():
                 cnt += 1
+        if i == 0:
+            break
 
     print(cnt, len(dataset))

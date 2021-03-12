@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 from transformer.Models import Encoder, Decoder
 from transformer.Layers import PostNet
-from modules import VarianceAdaptor, SpeakerIntegrator
+from modules import VarianceAdaptor, EmbeddingIntegrator, ProsodyEncoder
 from utils import get_mask_from_lengths
 import hparams as hp
 
@@ -18,18 +18,22 @@ class FastSpeech2(nn.Module):
         super(FastSpeech2, self).__init__()
 
         self.multi_speaker = hp.multi_speaker
+        self.encode_prosody = hp.encode_prosody
         if self.multi_speaker:
             # Initialize the speaker embeddings
             self.embed_speakers = nn.Embedding(num_speakers, hp.speaker_embed_dim)
             self.embed_speakers.weight.data.normal_(0, hp.speaker_embed_weight_std)
-            self.speaker_integrator = SpeakerIntegrator()
+            self.speaker_integrator = EmbeddingIntegrator()
+        if self.encode_prosody:
+            self.prosody_encoder = ProsodyEncoder()
+            self.prosody_integrator = EmbeddingIntegrator()
 
         self.encoder = Encoder()
         self.variance_adaptor = VarianceAdaptor()
 
         self.decoder = Decoder()
         self.mel_linear = nn.Linear(
-            hp.decoder_hidden + hp.speaker_embed_dim,
+            hp.decoder_hidden + hp.speaker_embed_dim + hp.prosody_embed_dim,
             hp.n_mel_channels)
 
         self.use_postnet = use_postnet
@@ -40,6 +44,7 @@ class FastSpeech2(nn.Module):
         self,
         src_seq,
         src_len,
+        mel_tgt=None,
         mel_len=None,
         d_target=None,
         p_target=None,
@@ -56,10 +61,12 @@ class FastSpeech2(nn.Module):
             mel_len, max_mel_len) if mel_len is not None else None
 
         encoder_output = self.encoder(src_seq, src_mask)
-
         if self.multi_speaker and speaker_ids is not None:
             speaker_embeddings = self.embed_speakers(speaker_ids)
             encoder_output = self.speaker_integrator(encoder_output, speaker_embeddings)
+        if self.encode_prosody and mel_tgt is not None:
+            prosody_embeddings = self.prosody_encoder(mel_tgt, mel_mask)
+            encoder_output = self.prosody_integrator(encoder_output, prosody_embeddings)
 
         if d_target is not None:
             variance_adaptor_output, d_prediction, p_prediction, e_prediction, _, _ = self.variance_adaptor(

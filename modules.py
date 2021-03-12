@@ -9,6 +9,7 @@ import math
 
 import hparams as hp
 import utils
+from conv2d import Conv2d
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -31,8 +32,8 @@ class VarianceAdaptor(nn.Module):
             np.log(hp.f0_min), np.log(hp.f0_max), hp.n_bins-1)), requires_grad=False)
         self.energy_bins = nn.Parameter(torch.linspace(
             hp.energy_min, hp.energy_max, hp.n_bins-1), requires_grad=False)
-        self.pitch_embedding = nn.Embedding(hp.n_bins, hp.encoder_hidden + hp.speaker_embed_dim)
-        self.energy_embedding = nn.Embedding(hp.n_bins, hp.encoder_hidden + hp.speaker_embed_dim)
+        self.pitch_embedding = nn.Embedding(hp.n_bins, hp.encoder_hidden + hp.speaker_embed_dim + hp.prosody_embed_dim)
+        self.energy_embedding = nn.Embedding(hp.n_bins, hp.encoder_hidden + hp.speaker_embed_dim + hp.prosody_embed_dim)
 
     def forward(self, x, src_mask, mel_mask=None, duration_target=None, pitch_target=None, energy_target=None, max_len=None, d_control=1.0, p_control=1.0, e_control=1.0):
 
@@ -110,10 +111,10 @@ class VariancePredictor(nn.Module):
     def __init__(self):
         super(VariancePredictor, self).__init__()
 
-        self.input_size = hp.encoder_hidden + hp.speaker_embed_dim
-        self.filter_size = hp.variance_predictor_filter_size + hp.speaker_embed_dim
+        self.input_size = hp.encoder_hidden + hp.speaker_embed_dim + hp.prosody_embed_dim
+        self.filter_size = hp.variance_predictor_filter_size + hp.speaker_embed_dim + hp.prosody_embed_dim
         self.kernel = hp.variance_predictor_kernel_size
-        self.conv_output_size = hp.variance_predictor_filter_size + hp.speaker_embed_dim
+        self.conv_output_size = hp.variance_predictor_filter_size + hp.speaker_embed_dim + hp.prosody_embed_dim
         self.dropout = hp.variance_predictor_dropout
 
         self.conv_layer = nn.Sequential(OrderedDict([
@@ -188,11 +189,11 @@ class Conv(nn.Module):
         return x
 
 
-class SpeakerIntegrator(nn.Module):
+class EmbeddingIntegrator(nn.Module):
     def __init__(self):
-        super(SpeakerIntegrator, self).__init__()
+        super(EmbeddingIntegrator, self).__init__()
 
-    def forward(self, x, speaker_embeddings):
+    def forward(self, x, embeddings):
         '''
         Repeats the speaker embeddings across the temporal
         dimension of the batch
@@ -201,6 +202,58 @@ class SpeakerIntegrator(nn.Module):
         speaker_embeddings: [bz, se_fd]
         returns: [bz, t, fd+se_fd]
         '''
-        speaker_embeddings = speaker_embeddings.unsqueeze(1)
-        speaker_embeddings = speaker_embeddings.repeat(1, x.shape[1], 1)
-        return torch.cat((x, speaker_embeddings), dim=2)
+        embeddings = embeddings.unsqueeze(1)
+        embeddings = embeddings.repeat(1, x.shape[1], 1)
+        return torch.cat((x, embeddings), dim=2)
+
+
+class ProsodyEncoder(nn.Module):
+    def __init__(self):
+        super(ProsodyEncoder, self).__init__()
+        n_cs = [32, 64, 128]
+        kernel_sz = 3
+        stride = 2
+
+        self.convs = nn.Sequential(
+            Conv2d(1, n_cs[0], kernel_sz, stride=stride),
+            nn.BatchNorm2d(n_cs[0]),
+            nn.ReLU(),
+            Conv2d(n_cs[0], n_cs[0], kernel_sz, stride=stride),
+            nn.BatchNorm2d(n_cs[0]),
+            nn.ReLU(),
+            Conv2d(n_cs[0], n_cs[1], kernel_sz, stride=stride),
+            nn.BatchNorm2d(n_cs[1]),
+            nn.ReLU(),
+            Conv2d(n_cs[1], n_cs[1], kernel_sz, stride=stride),
+            nn.BatchNorm2d(n_cs[1]),
+            nn.ReLU(),
+            Conv2d(n_cs[1], n_cs[2], kernel_sz, stride=stride),
+            nn.BatchNorm2d(n_cs[2]),
+            nn.ReLU(),
+            Conv2d(n_cs[2], n_cs[2], kernel_sz, stride=stride),
+            nn.BatchNorm2d(n_cs[2]),
+            nn.ReLU())
+
+        self.gru = nn.GRU(input_size=128, hidden_size=hp.prosody_embed_dim,
+            batch_first=True)
+
+        self.fc = nn.Sequential(
+            nn.Linear(hp.prosody_embed_dim, hp.prosody_embed_dim),
+            nn.Tanh())
+
+    def forward(self, x, mask):
+        # shape: [bz, l_r, d_r]
+        x = torch.unsqueeze(x, dim=1)
+        # shape: [bz, 1, l_r, d_r]
+        c = self.convs(x)
+        # shape: [bz, 128, (l_r/64), (d_r/64)])
+        bz = c.shape[0]
+        c = c.view(bz, -1, hp.prosody_embed_dim)
+        # shape: [bz, l_r/64, 128*(d_r/64)]
+        _, single = self.gru(c)
+        # shape: [1, bz, 128*(d_r/64)]
+        single = torch.squeeze(single, 0)
+        # shape: [bz, 128*(d_r/64)]
+        out = self.fc(single)
+        # shape: [bz, 128*(d_r/64)]
+        return out

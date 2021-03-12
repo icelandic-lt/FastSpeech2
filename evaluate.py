@@ -75,7 +75,7 @@ def evaluate(model, step, vocoder=None):
             with torch.no_grad():
                 # Forward
                 mel_output, mel_postnet_output, log_duration_output, f0_output, energy_output, src_mask, mel_mask, out_mel_len = model(
-                    text, src_len, mel_len, D, f0, energy, max_src_len, max_mel_len, speaker_ids)
+                    text, src_len, mel_target, mel_len, D, f0, energy, max_src_len, max_mel_len, speaker_ids)
 
                 # Cal Loss
                 mel_loss, mel_postnet_loss, d_loss, f_loss, e_loss = Loss(

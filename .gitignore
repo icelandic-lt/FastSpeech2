@@ -123,3 +123,4 @@ log/
 eval/
 waveglow/pretrained_model/*
 wandb/
+sbatch_scripts/

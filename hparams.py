@@ -4,7 +4,8 @@ DATA_ROOT = '/disk/ostrom/scratchdir/s2063518/'
 FS_ROOT= os.path.join(DATA_ROOT, 'fs_data/')
 
 # Dataset
-dataset = "Talromur-full"
+dataset = "LibriTTS"
+experiment_name = 'LibriTTS-multi'
 #data_path = os.path.join(DATA_ROOT, 'talromur', 'a')
 #dataset = "LJSpeech"
 #data_path = "/data/LJSpeech/LJSpeech-1.1"
@@ -15,14 +16,19 @@ dataset = "Talromur-full"
 multi_speaker = True
 speaker_embed_dim = 128 # ! SET TO 0 IF NO SPEAKER ENCODER
 speaker_embed_weight_std = 0.1
-num_speakers = 8 # Only needed for inference
+num_speakers = 247 # Only needed for inference
+encode_prosody = False
+prosody_embed_dim = 0 # ! SET TO 0 IF NO PROSODY ENCODER
+
+# Language
+language = 'en' # or 'is'
 
 # WandB
 use_wandb = True
 
 # Text
-#text_cleaners = ['english_cleaners']
-text_cleaners = ['transliteration_cleaners']
+text_cleaners = ['english_cleaners']
+#text_cleaners = ['transliteration_cleaners']
 
 
 # Audio and mel
@@ -69,10 +75,10 @@ max_seq_len = 1000
 
 # Quantization for F0 and energy
 ### for Talromur ###
-f0_min = 71.0
-f0_max = 799.4
-energy_min = 0.0
-energy_max = 172.0
+#f0_min = 71.0
+#f0_max = 799.4
+#energy_min = 0.0
+#energy_max = 172.0
 ### for LJSpeech ###
 #f0_min = 71.0
 #f0_max = 795.8
@@ -83,6 +89,11 @@ energy_max = 172.0
 #f0_max = 786.7
 #energy_min = 21.23
 #energy_max = 101.02
+### for LibriTTS ###
+f0_min = 71.0
+f0_max = 797.0
+energy_min = 0.0
+energy_max = 382.5
 
 n_bins = 256
 
@@ -90,11 +101,11 @@ n_bins = 256
 # Checkpoints and synthesis path
 
 preprocessed_path = os.path.join(FS_ROOT, "preprocessed/", dataset)
-checkpoint_path = os.path.join(FS_ROOT, "ckpt/", dataset)
-synth_path = os.path.join(FS_ROOT, "synth/", dataset)
-eval_path = os.path.join(FS_ROOT, "eval/", dataset)
-log_path = os.path.join(FS_ROOT, "log/", dataset)
-test_path = os.path.join(FS_ROOT, "results")
+checkpoint_path = os.path.join(FS_ROOT, "ckpt/", experiment_name)
+synth_path = os.path.join(FS_ROOT, "synth/", experiment_name)
+eval_path = os.path.join(FS_ROOT, "eval/", experiment_name)
+log_path = os.path.join(FS_ROOT, "log/", experiment_name)
+test_path = os.path.join(FS_ROOT, "results", experiment_name)
 
 
 # Optimizer
@@ -110,7 +121,7 @@ weight_decay = 0.
 
 
 # Vocoder
-vocoder = 'melgan'  # 'waveglow' or 'melgan'
+vocoder = 'waveglow'  # 'waveglow' or 'melgan'
 
 
 # Log-scaled duration
