@@ -22,13 +22,15 @@ def build_from_path(in_dir, out_dir):
     f0_max = energy_max = 0
     f0_min = energy_min = 1000000
     n_frames = 0
+    text_index = 2
 
     lines = list()
     if hp.data_split:
         assert "train" in hp.data_split
         assert "val" in hp.data_split
+        text_index = 1
         for key, value in hp.data_split.items():
-            with open(key, encoding="utf-8") as f:
+            with open(value, encoding="utf-8") as f:
                 for line in f:
                     lines.append((key, line))
     else:
@@ -46,7 +48,7 @@ def build_from_path(in_dir, out_dir):
     for set_name, line in lines:
         parts = line.strip().split('\t')
         basename = parts[0]
-        text = parts[2]
+        text = parts[text_index]
             
         ret = process_utterance(in_dir, out_dir, basename)
         if ret is None:

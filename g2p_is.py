@@ -35,6 +35,8 @@ def translate(text):
         try:
             if w in [".", ",", "?"]:
                 phone.append("sp")
+            if w == "<sp>":
+                phone.append("sp")
             else:
                 phones = translator(w.lower())
                 phone.extend(phones)
@@ -44,6 +46,6 @@ def translate(text):
     return phone
 
 if __name__ == "__main__":
-    t = translate("halló, þetta er á íslensku")
-    print(t)
+    t = translate("Góðan daginn klukkan er korter yfir níu þann tíunda maí og í dag er sól og tíu gráður")
+    print(translate("Halló ég kann að tala íslensku"))
 

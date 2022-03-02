@@ -17,9 +17,9 @@ from g2p_is import load_g2p, translate as g2p
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def preprocess(text, g2p_model):
+def preprocess(text):
     text = text.rstrip(punctuation)
-    phone = g2p(text, g2p_model)
+    phone = g2p(text)
     phone = list(filter(lambda p: p != ' ', phone))
     phone = '{' + '}{'.join(phone) + '}'
     phone = re.sub(r'\{[^\w\s]?\}', '{sp}', phone)
@@ -49,7 +49,7 @@ def get_FastSpeech2(num, full_path=None):
     return model
 
 
-def synthesize(model, waveglow, melgan, text, sentence, prefix='', duration_control=1.0, pitch_control=1.0, energy_control=1.0):
+def synthesize(model, waveglow, melgan, text, sentence, prefix='', duration_control=1.0, pitch_control=1.0, energy_control=1.0, output_dir=None):
     src_len = torch.from_numpy(np.array([text.shape[1]])).to(device)
 
     mel, mel_postnet, log_duration_output, f0_output, energy_output, _, _, mel_len = model(
@@ -62,8 +62,11 @@ def synthesize(model, waveglow, melgan, text, sentence, prefix='', duration_cont
     f0_output = f0_output[0].detach().cpu().numpy()
     energy_output = energy_output[0].detach().cpu().numpy()
 
-    if not os.path.exists(hp.test_path):
-        os.makedirs(hp.test_path)
+    if not output_dir:
+        output_dir = hp.test_path
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
     gl_fname = '{}_griffin_lim.wav'.format(prefix)
     Audio.tools.inv_mel_spec(mel_postnet, os.path.join(
@@ -72,10 +75,10 @@ def synthesize(model, waveglow, melgan, text, sentence, prefix='', duration_cont
     vocoder_fname = '{}_{}.wav'.format(prefix, hp.vocoder)
     if waveglow is not None:
         utils.waveglow_infer(mel_postnet_torch, waveglow, os.path.join(
-            hp.test_path, vocoder_fname))
+            output_dir, vocoder_fname))
     if melgan is not None:
         utils.melgan_infer(mel_postnet_torch, melgan, os.path.join(
-            hp.test_path, vocoder_fname))
+            output_dir, vocoder_fname))
 
     #utils.plot_data([(mel_postnet.numpy(), f0_output, energy_output)], [
     #                'Synthesized Spectrogram'], filename=os.path.join(hp.test_path, '{}.png'.format(prefix)))
@@ -92,6 +95,7 @@ if __name__ == "__main__":
     parser.add_argument('--pitch_control', type=float, default=1.0)
     parser.add_argument('--energy_control', type=float, default=1.0)
     parser.add_argument('--sentences', type=str)
+    parser.add_argument('--output-dir', type=str)
     args = parser.parse_args()
 
     if not args.model_g2p:
@@ -111,7 +115,15 @@ if __name__ == "__main__":
 
     with torch.no_grad():
         for i, sentence in enumerate(sentences):
-            text = preprocess(sentence, g2p_model)
-            synthesize(model, waveglow, melgan, text, sentence, 's{}-step{}'.format(
-                i+1, args.step), args.duration_control, args.pitch_control, args.energy_control)
+            # text = preprocess(sentence, g2p_model)
+            # synthesize(model, waveglow, melgan, text, sentence, 's{}-step{}'.format(
+            #     i+1, args.step), args.duration_control, args.pitch_control, args.energy_control)
+            try:
+                sent_id, text, _ = sentence.split("\t")
+            except ValueError:
+                # Possibly no id and only a sentence
+                sent_id, text = f"{i:0>5}", sentence
+            text = preprocess(text)
+            synthesize(model, waveglow, melgan, text, sentence, '{}'.format(
+                sent_id), args.duration_control, args.pitch_control, args.energy_control, args.output_dir)
 

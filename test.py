@@ -50,11 +50,11 @@ def main(args):
 
     # Testing
     print("Generate test audio")
-    prefix = "b"
-    fid = 1
+    prefix = ""
     for i, batchs in enumerate(loader):
         for j, data_of_batch in enumerate(batchs):
             print("Start batch", j)
+            fids = data_of_batch["id"]
 
             # Get Data
             text = torch.from_numpy(
@@ -77,6 +77,8 @@ def main(args):
             mel_output, mel_postnet_output, log_duration_output, f0_output, energy_output, src_mask, mel_mask, _ = model(text, src_len)
 
             for i in range(len(mel_len)):
+                fid = fids[i]
+                print("Generate audio for:", fid)
                 length = mel_len[i].item()
                 
                 _mel_target_torch = mel_target[i, :length].detach(
@@ -130,7 +132,6 @@ def main(args):
                         hp.test_path, 'step_{}_postnet_{}.wav'.format(current_step, hp.vocoder)))
                     utils.waveglow_infer(_mel_target_torch, waveglow, os.path.join(
                         hp.test_path, 'step_{}_ground-truth_{}.wav'.format(current_step, hp.vocoder)))
-                fid += 1
 
 
 if __name__ == "__main__":

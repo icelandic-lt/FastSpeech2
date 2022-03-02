@@ -2,8 +2,13 @@ import os
 
 # Dataset
 dataset = "Talromur-b"
-data_path = "/data/talromur/b/"
+data_path = "/data/tts/talromur/published/alfur/"
 data_split = None
+data_split = {
+    "train": "/data/tts/talromur/published/split/c_train.txt",
+    "val": "/data/tts/talromur/published/split/c_val.txt",
+    #"test": "/data/tts/talromur/published/split/c_test.txt",
+}
 #dataset = "LJSpeech"
 #data_path = "/data/LJSpeech/LJSpeech-1.1"
 #dataset = "Blizzard2013"
@@ -84,7 +89,9 @@ synth_path = os.path.join("./synth/", dataset)
 eval_path = os.path.join("./eval/", dataset)
 test_path = os.path.join("./test/", dataset)
 log_path = os.path.join("./log/", dataset)
-test_path = "./results"
+#test_path = "./results"
+test_path = "./sample_outputs"
+#test_path = "/work/gunnar/herma_test_setningar"
 
 
 # Optimizer
