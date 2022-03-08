@@ -10,18 +10,22 @@ Requirements
 Requirements to train a TTS model:
 
    - Speech data, [Talrómur](https://repository.clarin.is/repository/xmlui/handle/20.500.12537/104)
-   - Alignments for the speech data (TextGrid files)
+   - Alignments for the speech data (TextGrid files) [Talrómur-utils](https://repository.clarin.is/repository/xmlui/handle/20.500.12537/201)
 
 Requirements to synthesize speech:
    - Trained TTS model
    - Vocoder model
    - G2P model
 
+You can find baseline models in the [Talrómur-utils](https://repository.clarin.is/repository/xmlui/handle/20.500.12537/201) bundle.
+
+
 Examples
 ---
 
 These steps preprocess the data, train a model, test the model and synthesizes a few utterances.
 For more info look at the help for each script `python train.py --help`.
+It is also helpful to look at the `hparams.py` file.
 
 ```bash
 python preprocess.py
